@@ -1,0 +1,13 @@
+create table users(
+  id integer primary key,
+  name varchar unique not null,
+  state varchar not null
+)
+
+create table card(
+  id serial primary key,
+  number varchar not null,
+  password varchar not null,
+  balance decimal not null,
+  user_id integer references users(id)
+)

@@ -5,6 +5,8 @@ import org.example.utils.States;
 
 import java.math.BigDecimal;
 import java.sql.*;
+import java.util.ArrayList;
+import java.util.List;
 
 import static org.example.utils.Util.testConnection;
 
@@ -24,15 +26,17 @@ public class ServiceMethods {
         }
     }
 
-    public void updateState(User user, States state){
+    public void updateState(User user, States state) {
         Long id = user.getId();
-        String checkQuery = "SELECT COUNT(*) FROM users WHERE id = '" + id + "';";
-        String updateQuery = "UPDATE users SET state = '" + state + "' WHERE id = '" + id + "';";
+        String updateQuery = "UPDATE users SET state = ? WHERE id = ?";
 
-        try (Statement statement = testConnection.getConnection().createStatement()) {
-            if (statement.executeQuery(checkQuery).next()) {
-                statement.executeUpdate(updateQuery);
-            }
+        try (Connection conn = testConnection.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(updateQuery)) {
+
+            pstmt.setString(1, state.name());
+            pstmt.setLong(2, id);
+
+            pstmt.executeUpdate();
         } catch (SQLException e) {
             e.printStackTrace();
         }
@@ -105,13 +109,44 @@ public class ServiceMethods {
         }
     }
 
-
     public void setCardBalance(String newBalance, Long cardId) {
         String updateQuery = "UPDATE card SET balance = ? WHERE id = ?";
 
         try (Connection conn = testConnection.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(updateQuery)) {
             pstmt.setBigDecimal(1, BigDecimal.valueOf(Long.parseLong(newBalance)));
+            pstmt.setLong(2, cardId);
+            pstmt.executeUpdate();
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public List<String> getUserCards(Long userId) {
+        List<String> cardNumbers = new ArrayList<>();
+        String query = "SELECT number FROM card WHERE user_id = ?";
+
+        try (Connection conn = testConnection.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(query)) {
+            pstmt.setLong(1, userId);
+
+            try (ResultSet resultSet = pstmt.executeQuery()) {
+                while (resultSet.next()) {
+                    cardNumbers.add(resultSet.getString("number"));
+                }
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return cardNumbers;
+    }
+
+    public void transferMoney(String amount, Long cardId) {
+        String updateQuery = "UPDATE card SET balance = balance + ? WHERE id = ?";
+
+        try (Connection conn = testConnection.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(updateQuery)) {
+            pstmt.setBigDecimal(1, BigDecimal.valueOf(Integer.parseInt(amount)));
             pstmt.setLong(2, cardId);
             pstmt.executeUpdate();
         } catch (SQLException e) {

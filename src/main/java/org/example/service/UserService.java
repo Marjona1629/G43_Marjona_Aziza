@@ -5,6 +5,8 @@ import org.example.utils.States;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.objects.Update;
 
+import java.util.List;
+
 import static org.example.utils.Util.*;
 
 public class UserService {
@@ -14,6 +16,7 @@ public class UserService {
     private final BotService botService = BotService.getInstance();
 
     static Long currentCardID;
+    static Long cardID_to_Transfer;
 
     public void messageHandler(Update update, User user) {
         Long id = update.getMessage().getChat().getId();
@@ -48,13 +51,25 @@ public class UserService {
                     sendMessage.setText("Enter card number: (NOTE: xxxx-xxxx-xxxx-xxxx)");
                 }
                 case "transfer" -> {
-
+                    serviceMethods.updateState(user, States.TRANSFER_MONEY);
+                    List<String> cardNumbers = serviceMethods.getUserCards(user.getId());
+                    if (!cardNumbers.isEmpty()) {
+                        sendMessage.setReplyMarkup(replyService.keyboardMaker(cardNumbers));
+                        sendMessage.setText("Select one of your cards to transfer money");
+                    } else {
+                        sendMessage.setText("You have no cards to transfer money from");
+                    }
                 }
-                case "history" -> {
-
+                case "back" -> {
+                    serviceMethods.updateState(user, States.MAIN);
+                    sendMessage.setReplyMarkup(replyService.keyboardMaker(userMenu));
                 }
+
                 case "deposit" -> {
-
+                    serviceMethods.updateState(user, States.DEPOSITING_MONEY);
+                    List<String> cardNumbers = serviceMethods.getUserCards(user.getId());
+                    sendMessage.setReplyMarkup(replyService.keyboardMaker(cardNumbers));
+                    sendMessage.setText("Select a card to deposit money into");
                 }
 
                 default -> {
@@ -68,6 +83,7 @@ public class UserService {
                             sendMessage.setText("Name must include letters!");
                             serviceMethods.updateState(user, States.REGISTRATION);
                         }
+
                     } else if (user.getState() == States.ADDING_NEW_CARD){
                         if (text.matches("\\d{4}-\\d{4}-\\d{4}-\\d{4}")){
                             if (!serviceMethods.checkDuplicateNumber(text)){
@@ -94,16 +110,25 @@ public class UserService {
                         serviceMethods.updateState(user, States.MAIN);
                         sendMessage.setReplyMarkup(replyService.keyboardMaker(userMenu));
 
+                    } else if (user.getState() == States.TRANSFER_MONEY) {
+                        cardID_to_Transfer = Long.valueOf(text);
+                        sendMessage.setText("Enter money to transfer :");
+                        sendMessage.setReplyMarkup(null);
+                        serviceMethods.updateState(user, States.SENDING_MONEY);
+
+                    } else if (user.getState() == States.SENDING_MONEY){
+                        serviceMethods.transferMoney(text, cardID_to_Transfer);
+                        sendMessage.setText("Money transferred");
+                        sendMessage.setReplyMarkup(replyService.keyboardMaker(userMenu));
+                        serviceMethods.updateState(user, States.MAIN);
+
                     } else {
                         sendMessage.setText("You are on Main Page");
                         serviceMethods.updateState(user, States.MAIN);
                     }
                 }
             }
-            if (user.getState() != States.REGISTRATION
-                    && user.getState() != States.ADDING_NEW_CARD
-                    && user.getState() != States.PUTTING_CARD_PASSWORD
-                    && user.getState() != States.PUTTING_CARD_BALANCE){
+            if (user.getState() == States.MAIN){
                 sendMessage.setReplyMarkup(replyService.keyboardMaker(userMenu));
             }
             botService.executeMessages(sendMessage);
